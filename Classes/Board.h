@@ -19,11 +19,13 @@ class Board
 public:
     void addToScene(cocos2d::Scene* pScene);
     void setPosition(const cocos2d::Vec2& pos);
+    cocos2d::Vec2 getPosition(void) const;
     void registerEventHandlers(cocos2d::EventDispatcher*);
     void flipAdjacentTiles(FloorTile* pFlipped);
     void addTileToMoveBuffer(FloorTile* pTile);
     void undo();
     void redo();
+    bool hasWon();
 
     bool canUndoMove() const;
     bool canRedoMove() const;
@@ -72,7 +74,6 @@ private:
 
     void disableTouchHandling();
     void shiftMovesBack();
-    bool hasWon();
 
     float getTileScale();
     int getTileSize() const;

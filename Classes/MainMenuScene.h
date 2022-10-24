@@ -7,9 +7,10 @@
 
 #include "cocos2d.h"
 #include "ui/CocosGUI.h"
-
 #include "FloorTile.h"
 #include "Board.h"
+
+#include "firebase/gma/ad_view.h"
 
 #include <memory>
 
@@ -31,15 +32,16 @@ private:
     void initModeSelector();
     void initPictures();
     void initInfoButton();
+    void initAd();
 
     void onPressPlay(cocos2d::Ref* pSender);
     void onPressTimes(cocos2d::Ref* pSender);
     void onPressLeft(cocos2d::Ref* sender, cocos2d::ui::Widget::TouchEventType type);
     void onPressRight(cocos2d::Ref* sender, cocos2d::ui::Widget::TouchEventType type);
 
-    void shiftToCenter(cocos2d::Node* pLabel, const cocos2d::Vec2& ptOrigin, const cocos2d::Size& visibleSize);
-    void shiftToLeft(cocos2d::Node* pLabel, const cocos2d::Vec2& ptOrigin, const cocos2d::Size& visibleSize);
-    void shiftToRight(cocos2d::Node* pLabel, const cocos2d::Vec2& ptOrigin, const cocos2d::Size& visibleSize);
+    static void shiftToCenter(cocos2d::Node* pLabel, const cocos2d::Vec2& ptOrigin, const cocos2d::Size& visibleSize);
+    static void shiftToLeft(cocos2d::Node* pLabel, const cocos2d::Vec2& ptOrigin, const cocos2d::Size& visibleSize);
+    static void shiftToRight(cocos2d::Node* pLabel, const cocos2d::Vec2& ptOrigin, const cocos2d::Size& visibleSize);
 
 private:
     unsigned int iModeIndex = 0;
@@ -53,6 +55,8 @@ private:
     cocos2d::ui::Button* pScrollRightButton = nullptr;
 
     cocos2d::Vector<cocos2d::Label*> modeLabels;
+
+    std::unique_ptr<firebase::gma::AdView> ad_view;
 };
 
 

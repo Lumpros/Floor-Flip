@@ -1,5 +1,17 @@
 #include "MainMenuScene.h"
 #include "GameScene.h"
+#include "BestTimesScene.h"
+
+#include "firebase/gma.h"
+#include "firebase/gma/types.h"
+
+#include <thread>
+#include <chrono>
+
+#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID)
+#include <jni.h>
+#include <platform/android/jni/JniHelper.h>
+#endif
 
 USING_NS_CC;
 
@@ -7,8 +19,16 @@ USING_NS_CC;
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #endif
 
+#ifndef GET_ORIGIN_AND_SIZE
+#define GET_ORIGIN_AND_SIZE(origin_name, size_name) \
+        Director* pDirector = Director::getInstance(); \
+        const Vec2 origin_name = pDirector->getVisibleOrigin(); \
+        const Size size_name = pDirector->getVisibleSize();
+#endif
+
 #define DO_IF_VALID(x, y) if (x) { (x)->y; }
 
+// Keep up to date with BestTimeManager
 static const char* g_modes[] = {
         "Tiny - 4x4",
         "Small - 5x5",
@@ -32,10 +52,7 @@ Scene* MainMenu::createScene()
 
 MainMenu::~MainMenu()
 {
-    for (uint8_t i = 0; i < ARRAY_SIZE(g_modeSprites); ++i)
-    {
-        g_modeSprites[i]->release();
-    }
+
 }
 
 bool MainMenu::init()
@@ -54,52 +71,63 @@ bool MainMenu::init()
     initCocosMenu();
     initModeSelector();
     initInfoButton();
+    initAd();
 
     return true;
 }
 
 void MainMenu::initPictures()
 {
+    GET_ORIGIN_AND_SIZE(ptOrigin, visibleSize);
+
     g_modeSprites[0] = Sprite::create("tiles/4x4.png");
     g_modeSprites[1] = Sprite::create("tiles/5x5.png");
     g_modeSprites[2] = Sprite::create("tiles/7x7.png");
     g_modeSprites[3] = Sprite::create("tiles/9x9.png");
     g_modeSprites[4] = Sprite::create("tiles/11x11.png");
 
-    for (uint8_t i = 0; i < ARRAY_SIZE(g_modeSprites); ++i)
+    for (Sprite* pSprite : g_modeSprites)
     {
-        DO_IF_VALID(g_modeSprites[i], retain());
-        addChild(g_modeSprites[i]);
+        if (pSprite)
+        {
+            pSprite->setOpacity(0);
+            pSprite->setContentSize(Size(visibleSize.width / 2, visibleSize.width / 2));
+
+            pSprite->setPositionY(visibleSize.height * 11 / 16 + ptOrigin.y);
+            pSprite->setPositionX(visibleSize.width / 2 + ptOrigin.x);
+
+            this->addChild(pSprite);
+        }
     }
 }
 
 void MainMenu::initHiddenLabels()
 {
-    const Size visibleSize = Director::getInstance()->getVisibleSize();
-    const Vec2 origin = Director::getInstance()->getVisibleOrigin();
+    GET_ORIGIN_AND_SIZE(origin, visibleSize);
 
-    for (size_t i = 0; i < ARRAY_SIZE(g_modes); ++i)
+    for (const char* mode : g_modes)
     {
-        Label* pLabel = Label::createWithTTF(g_modes[i], "fonts/Roboto-Light.ttf", 12);
+        Label* pLabel = Label::createWithTTF(mode, "fonts/Roboto-Light.ttf", 12);
 
         if (pLabel)
         {
-            addChild(pLabel);
-
             pLabel->setOpacity(0);
             pLabel->setTextColor(Color4B(0xFF, 0xFF, 0xFF, 255));
             pLabel->setPositionY(visibleSize.height * 8 / 16 + origin.y);
             pLabel->setPositionX(visibleSize.width / 2 + origin.x);
 
             modeLabels.pushBack(pLabel);
+
+            this->addChild(pLabel);
         }
     }
 }
 
 void MainMenu::initBackground()
 {
-    const Color4B bgColor = Color4B(30, 30, 30, 255);
+    GET_ORIGIN_AND_SIZE(ptOrigin, visibleSize);
 
+    const Color4B bgColor = Color4B(30, 30, 30, 255);
     LayerColor* pBackgroundLayer = LayerColor::create(bgColor);
 
     if (pBackgroundLayer)
@@ -113,9 +141,6 @@ void MainMenu::initBackground()
     // of being visible all the way across the screen.
     LayerColor* pLeftLayer = LayerColor::create(bgColor);
     LayerColor* pRightLayer = LayerColor::create(bgColor);
-
-    const Vec2 ptOrigin = Director::getInstance()->getVisibleOrigin();
-    const Size visibleSize = Director::getInstance()->getVisibleSize();
 
     if (pLeftLayer)
     {
@@ -139,20 +164,19 @@ void MainMenu::initCocosMenu()
     const Size visibleSize = Director::getInstance()->getVisibleSize();
 
     Vector<MenuItem*> menuItems;
-    menuItems.pushBack(MenuItemImage::create("menu/free-play-unselected.png", "menu/free-play-selected.png",
-                                             CC_CALLBACK_1(MainMenu::onPressPlay, this)));
-    menuItems.pushBack(
-            MenuItemImage::create("menu/times-unselected.png", "menu/times-selected.png",
-                                  CC_CALLBACK_1(MainMenu::onPressTimes, this)));
+    menuItems.pushBack(MenuItemImage::create("menu/free-play-unselected.png", "menu/free-play-selected.png", CC_CALLBACK_1(MainMenu::onPressPlay, this)));
+    menuItems.pushBack(MenuItemImage::create("menu/times-unselected.png", "menu/times-selected.png", CC_CALLBACK_1(MainMenu::onPressTimes, this)));
 
-    pMenu = Menu::createWithArray(menuItems);
-
-    if (pMenu)
+    // Create the menu only if all menu items were created successfully
+    if (std::find(menuItems.begin(), menuItems.end(), nullptr) == menuItems.end())
     {
-        pMenu->alignItemsVerticallyWithPadding(0.0);
-        pMenu->setPositionY(visibleSize.height * 5 / 16);
+        pMenu = Menu::createWithArray(menuItems);
 
-        if (std::find(menuItems.begin(), menuItems.end(), nullptr) == menuItems.end()) {
+        if (pMenu)
+        {
+            pMenu->alignItemsVerticallyWithPadding(0.0);
+            pMenu->setPositionY(visibleSize.height * 5 / 16);
+
             this->addChild(pMenu, 3);
         }
     }
@@ -162,13 +186,20 @@ void MainMenu::onPressPlay(Ref* pSender)
 {
     const std::string& label_string = pModeLabel->getString();
 
+    // Find the index of the 'x' character in the string
     size_t xIndex = label_string.size() - 1;
     for (; xIndex >= 0 && label_string[xIndex] != 'x'; --xIndex) {}
 
+    // If no such character was found, the index will be -1
+    // This would only happen if some person changed the string
+    // using a third party program, so in that case we just dont launh the game :)
     if (xIndex != -1)
     {
+        // The reason we don't just take the next character is because the size might
+        // be a 2-digit number, e.g. 12, so we take the substring from the x until the end
         std::string size = label_string.substr(xIndex + 1, label_string.size() - 1);
 
+        // and then we convert it into a number, which we will pass to initBoard
         uint8_t boardSize = atoi(size.c_str());
 
         GameScene *pGameScene = GameScene::create();
@@ -176,14 +207,19 @@ void MainMenu::onPressPlay(Ref* pSender)
         if (pGameScene)
         {
             pGameScene->initBoard(boardSize, boardSize);
-            Director::getInstance()->pushScene(TransitionCrossFade::create(0.4, pGameScene));
+            Director::getInstance()->pushScene(TransitionCrossFade::create(0.2, pGameScene));
         }
     }
 }
 
 void MainMenu::onPressTimes(Ref* pSender)
 {
+    BestTimesScene* pBestTimeScene = BestTimesScene::create();
 
+    if (pBestTimeScene)
+    {
+        Director::getInstance()->pushScene(TransitionCrossFade::create(0.1, pBestTimeScene));
+    }
 }
 
 void MainMenu::initInfoButton()
@@ -192,10 +228,11 @@ void MainMenu::initInfoButton()
 
     if (pInfoButton)
     {
-        const Size visibleSize = Director::getInstance()->getVisibleSize();
+        GET_ORIGIN_AND_SIZE(ptOrigin, visibleSize);
 
+        // Position this at the top right of the screen
         pInfoButton->setPosition(
-                Director::getInstance()->getVisibleOrigin()
+                ptOrigin
                 - Vec2(pInfoButton->getContentSize().width / 2, pInfoButton->getContentSize().height / 2)
                 + Vec2(visibleSize.width, visibleSize.height)
         );
@@ -206,16 +243,16 @@ void MainMenu::initInfoButton()
 
 void MainMenu::initModeSelector()
 {
+    GET_ORIGIN_AND_SIZE(ptOrigin, visibleSize);
+
     pScrollLeftButton = ui::Button::create("menu/backward.png");
     pScrollRightButton = ui::Button::create("menu/forward.png");
-
-    const Vec2 ptOrigin = Director::getInstance()->getVisibleOrigin();
-    const Size visibleSize = Director::getInstance()->getVisibleSize();
 
     if (pScrollLeftButton)
     {
         pScrollLeftButton->addTouchEventListener(CC_CALLBACK_2(MainMenu::onPressLeft, this));
-        pScrollLeftButton->setPosition(ptOrigin + Vec2(visibleSize.width / 8, visibleSize.height * 8 / 16));
+        // Place this on the left part of the screen, centered vertically
+        pScrollLeftButton->setPosition(ptOrigin + Vec2(visibleSize.width / 8, visibleSize.height / 2));
 
         this->addChild(pScrollLeftButton, 2);
     }
@@ -223,6 +260,7 @@ void MainMenu::initModeSelector()
     if (pScrollRightButton)
     {
         pScrollRightButton->addTouchEventListener(CC_CALLBACK_2(MainMenu::onPressRight, this));
+        // Place this on the right part of the screen, centered vertically
         pScrollRightButton->setPosition(ptOrigin + Vec2(visibleSize.width * 7 / 8, visibleSize.height * 8 / 16));
 
         this->addChild(pScrollRightButton, 2);
@@ -230,20 +268,6 @@ void MainMenu::initModeSelector()
 
     pModeLabel = modeLabels.at(iModeIndex);
     DO_IF_VALID(pModeLabel, setOpacity(0xFF));
-
-    Point origin = Director::getInstance()->getVisibleOrigin();
-
-    for (size_t i = 0; i < ARRAY_SIZE(g_modeSprites); ++i)
-    {
-        if (g_modeSprites[i])
-        {
-            g_modeSprites[i]->setOpacity(0);
-            g_modeSprites[i]->setContentSize(Size(visibleSize.width / 2, visibleSize.width / 2));
-
-            g_modeSprites[i]->setPositionY(visibleSize.height * 11 / 16 + origin.y);
-            g_modeSprites[i]->setPositionX(visibleSize.width / 2 + origin.x);
-        }
-    }
 
     pModeSprite = g_modeSprites[iModeIndex];
     DO_IF_VALID(pModeSprite, setOpacity(0xFF));
@@ -339,4 +363,53 @@ void MainMenu::shiftToRight(cocos2d::Node* pNode, const cocos2d::Vec2& ptOrigin,
     MoveTo* pMoveToRightAction = MoveTo::create(0.25, Vec2(visibleSize.width * 1.5 + ptOrigin.x, pNode->getPositionY()));
 
     pNode->runAction(Sequence::create(pMoveToRightAction, FadeTo::create(0, 0), nullptr));
+}
+
+static void onAdViewInit(const firebase::Future<void>& result, void* user_data)
+{
+    if (result.error() == firebase::gma::kAdErrorCodeNone)
+    {
+        auto ad_view = reinterpret_cast<firebase::gma::AdView*>(user_data);
+
+        ad_view->SetPosition(firebase::gma::AdView::kPositionBottom);
+        ad_view->Show();
+
+        firebase::gma::AdRequest ad_request;
+        firebase::Future<firebase::gma::AdResult> load_ad_request = ad_view->LoadAd(ad_request);
+    }
+}
+
+static void onGmaInit(const firebase::Future<firebase::gma::AdapterInitializationStatus>& future, void* user_data)
+{
+    if (future.error() == firebase::gma::kAdErrorCodeNone)
+    {
+        std::unique_ptr<firebase::gma::AdView>& ad_view = *reinterpret_cast<std::unique_ptr<firebase::gma::AdView>*>(user_data);
+        ad_view.reset(new firebase::gma::AdView());
+
+        firebase::gma::AdParent ad_parent;
+#if defined(__ANDROID__)
+        ad_parent = JniHelper::getActivity();
+#endif
+        firebase::Future<void> result = ad_view->Initialize(ad_parent,
+                                                            "ca-app-pub-3940256099942544/6300978111",
+                                                            firebase::gma::AdSize::kBanner);
+
+        result.OnCompletion(onAdViewInit, ad_view.get());
+    }
+}
+
+void MainMenu::initAd()
+{
+    firebase::Future<firebase::gma::AdapterInitializationStatus> result = firebase::gma::InitializeLastResult();
+
+    // Firebase initialization might have been complete by the time we get here (although unlikely)
+    if (result.status() == firebase::kFutureStatusComplete)
+    {
+        onGmaInit(result, &ad_view);
+    }
+
+    else
+    {
+        result.OnCompletion(onGmaInit, &ad_view);
+    }
 }

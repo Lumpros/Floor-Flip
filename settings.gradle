@@ -1,0 +1,8 @@
+include ':libcocos2dx'
+project(':libcocos2dx').projectDir = new File(settingsDir, '../cocos2d/cocos/platform/android/libcocos2dx')
+include ':Floor Flip'
+project(':Floor Flip').projectDir = new File(settingsDir, 'app')
+
+def firebase_cpp_sdk_dir = System.getProperty('firebase_cpp_sdk.dir')
+gradle.ext.firebase_cpp_sdk_dir = "$firebase_cpp_sdk_dir"
+includeBuild "$firebase_cpp_sdk_dir"

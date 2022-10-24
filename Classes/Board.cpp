@@ -343,3 +343,13 @@ bool Board::canRedoMove() const
 {
     return moveBufferIndex < static_cast<int>(moveBufferLength) - 1 && moves[moveBufferIndex + 1];
 }
+
+Vec2 Board::getPosition() const
+{
+    const Sprite* pTopLeftTile = tiles[getRows() - 1][getColumns() - 1]->getSprite();
+
+    const Rect rcBox = pTopLeftTile->getBoundingBox();
+    Vec2 posTile = pTopLeftTile->getPosition();
+
+    return Vec2(posTile.x + rcBox.size.width / 2, posTile.y + rcBox.size.height / 2);
+}

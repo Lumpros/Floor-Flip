@@ -6,16 +6,6 @@
 
 USING_NS_CC;
 
-Game::Timer::Timer()
-{
-
-}
-
-Game::Timer::~Timer()
-{
-
-}
-
 // Delta is in seconds
 void Game::Timer::update(float delta)
 {
@@ -52,17 +42,17 @@ void Game::Timer::update(float delta)
     updateLabelString();
 }
 
-void Game::Timer::reset(void)
+void Game::Timer::reset()
 {
     hours = minutes = seconds = milliseconds = 0;
 }
 
-void Game::Timer::stop(void)
+void Game::Timer::stop()
 {
     isRunning = false;
 }
 
-void Game::Timer::start(void)
+void Game::Timer::start()
 {
     isRunning = true;
 }
@@ -73,7 +63,10 @@ void Game::Timer::addToScene(Scene* pScene)
 
     pLabel = Label::createWithTTF("00:00:00.000", "fonts/Roboto-Light.ttf", 20);
 
-    pScene->addChild(pLabel);
+    if (pLabel)
+    {
+        pScene->addChild(pLabel);
+    }
 }
 
 void Game::Timer::updateLabelString()
@@ -81,7 +74,7 @@ void Game::Timer::updateLabelString()
     if (pLabel)
     {
         char buffer[64];
-        sprintf(buffer, "%02d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds);
+        sprintf(buffer, "%02ld:%02ld:%02ld.%03ld", hours, minutes, seconds, milliseconds);
 
         pLabel->setString(buffer);
     }

@@ -2,8 +2,8 @@
 // Created by Lumpros on 10/1/2022.
 //
 
-#ifndef __FLOORTILE_H__
-#define __FLOORTILE_H__
+#ifndef __FLOOR_TILE_H__
+#define __FLOOR_TILE_H__
 
 #include "cocos2d.h"
 
@@ -26,12 +26,13 @@ public:
     bool onTouchBegan(cocos2d::Touch*, cocos2d::Event*);
     bool onTouchEnded(cocos2d::Touch*, cocos2d::Event*);
     void setPosition(const cocos2d::Vec2&);
-    void setSize(const cocos2d::Size&);
     void setScale(float scale);
     void setBoard(Board* pBoard);
     void addToScene(cocos2d::Scene*);
     void removeFromScene();
     void flip();
+
+    void runAction(cocos2d::Action* action);
 
 private:
     cocos2d::Scene* pScene = nullptr;
@@ -43,4 +44,4 @@ private:
 };
 
 
-#endif //PROJ_ANDROID_FLOORTILE_H
+#endif

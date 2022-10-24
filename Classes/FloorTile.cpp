@@ -12,6 +12,7 @@ FloorTile::FloorTile(FloorTile::Color color, cocos2d::Animation* pAnimation)
 {
     assert(pAnimation);
 
+    // The first frame of the animation is the red tile, and the last one is the blue tile
     if (color == COLOR_RED)
         pSprite = Sprite::createWithSpriteFrame(pAnimation->getFrames().front()->getSpriteFrame());
     else
@@ -87,6 +88,8 @@ bool FloorTile::onTouchBegan(cocos2d::Touch* pTouch, cocos2d::Event* pEvent)
         Vec2 ptTouch = pTouch->getLocation();
         ptTouch = pSprite->getParent()->convertToNodeSpace(ptTouch);
 
+        // If we touched the tile, then cocos2d calls onTouchEnded,
+        // which will then decide if the tile shall be flipped
         return pSprite->getBoundingBox().containsPoint(ptTouch);
     }
 
@@ -99,14 +102,14 @@ bool FloorTile::onTouchEnded(cocos2d::Touch* pTouch, cocos2d::Event* pEvent)
 
     if (pSprite)
     {
-        Vec2 ptTouch = pTouch->getLocation();
-        ptTouch = pSprite->getParent()->convertToNodeSpace(ptTouch);
+        Vec2 ptTouch = pSprite->getParent()->convertToNodeSpace(pTouch->getLocation());
 
         if (pSprite->getBoundingBox().containsPoint(ptTouch))
         {
             pBoard->addTileToMoveBuffer(this);
             flip();
             pBoard->flipAdjacentTiles(this);
+
             return true;
         }
     }
@@ -119,5 +122,13 @@ void FloorTile::setScale(float scale)
     if (pSprite)
     {
         pSprite->setScale(scale);
+    }
+}
+
+void FloorTile::runAction(cocos2d::Action* action)
+{
+    if (pSprite)
+    {
+        pSprite->runAction(action);
     }
 }

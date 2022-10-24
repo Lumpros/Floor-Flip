@@ -25,18 +25,20 @@
 #include "SplashscreenScene.h"
 #include "MainMenuScene.h"
 
+#include "firebase/gma.h"
+#include "firebase/gma/types.h"
+#include "firebase/future.h"
+
+#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID)
+#include <jni.h>
+#include <platform/android/jni/JniHelper.h>
+#endif
+
 USING_NS_CC;
 
 Scene* Splashscreen::createScene()
 {
     return Splashscreen::create();
-}
-
-// Print useful error message instead of segfaulting when files are not there.
-static void problemLoading(const char* filename)
-{
-    printf("Error while loading: %s\n", filename);
-    printf("Depending on how you compiled you might have to add 'Resources/' in front of filenames in HelloWorldScene.cpp\n");
 }
 
 bool Splashscreen::init()
@@ -46,54 +48,60 @@ bool Splashscreen::init()
         return false;
     }
 
-    auto visibleSize = Director::getInstance()->getVisibleSize();
-    Vec2 origin = Director::getInstance()->getVisibleOrigin();
+    Director* pDirector = Director::getInstance();
 
+    const Size visibleSize = pDirector->getVisibleSize();
+    const Vec2 ptOrigin = pDirector->getVisibleOrigin();
+
+    initLanselotLabel(ptOrigin, visibleSize);
+    initSoftwareLabel(ptOrigin, visibleSize);
+    initFirebase();
+
+    return true;
+}
+
+void Splashscreen::initLanselotLabel(const Vec2& ptOrigin, const Size& visibleSize)
+{
     Label* pLanselotLabel = Label::createWithTTF("LANSELOT", "fonts/CloisterBlack.ttf", 20);
 
     if (pLanselotLabel)
     {
         pLanselotLabel->setOpacity(0);
         pLanselotLabel->setTextColor(Color4B::WHITE);
-        pLanselotLabel->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2 + pLanselotLabel->getContentSize().height / 2) + origin);
+        pLanselotLabel->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2 + pLanselotLabel->getContentSize().height / 2) + ptOrigin);
 
         this->addChild(pLanselotLabel);
-    }
 
+        pLanselotLabel->runAction(Sequence::create(DelayTime::create(0.5), FadeIn::create(0.5), DelayTime::create(0.5), nullptr));
+    }
+}
+
+void Splashscreen::initSoftwareLabel(const Vec2& ptOrigin, const Size& visibleSize)
+{
     Label* pSoftwareLabel = Label::createWithTTF("SOFTWARE", "fonts/good times rg.otf", 10);
 
     if (pSoftwareLabel)
     {
         pSoftwareLabel->setOpacity(0);
         pSoftwareLabel->setTextColor(Color4B::WHITE);
-        pSoftwareLabel->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2 - 5) + origin);
+        pSoftwareLabel->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2 - 5) + ptOrigin);
 
         this->addChild(pSoftwareLabel);
+
+        auto fnSwapToMenu = CallFunc::create([]() {
+            Director::getInstance()->replaceScene(TransitionFade::create(1.0, MainMenu::createScene()));
+        });
+
+        pSoftwareLabel->runAction(Sequence::create(DelayTime::create(0.5), FadeIn::create(0.5), DelayTime::create(0.5), fnSwapToMenu, nullptr));
     }
-
-    auto fnSwapToMenu = CallFunc::create([]() {
-        Director::getInstance()->replaceScene(TransitionFade::create(1.0, MainMenu::createScene()));
-    });
-
-    pLanselotLabel->runAction(
-            Sequence::create(DelayTime::create(0.5), FadeIn::create(0.5), DelayTime::create(0.5), nullptr)
-    );
-
-    pSoftwareLabel->runAction(
-            Sequence::create(DelayTime::create(0.5), FadeIn::create(0.5), DelayTime::create(0.5), fnSwapToMenu, nullptr)
-    );
-
-    return true;
 }
 
-
-void Splashscreen::menuCloseCallback(Ref* pSender)
+void Splashscreen::initFirebase()
 {
-    //Close the cocos2d-x game scene and quit the application
-    Director::getInstance()->end();
-
-    /*To navigate back to native iOS screen(if present) without quitting the application  ,do not use Director::getInstance()->end() as given above,instead trigger a custom event created in RootViewController.mm as below*/
-
-    //EventCustom customEndEvent("game_scene_close_event");
-    //_eventDispatcher->dispatchEvent(&customEndEvent);
+#if defined(__ANDROID__)
+    firebase::InitResult result;
+    firebase::gma::Initialize(JniHelper::getEnv(), JniHelper::getActivity(), &result);
+#elif
+    firebase::gma::Initialize();
+#endif
 }
